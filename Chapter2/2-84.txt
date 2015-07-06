@@ -1,0 +1,3 @@
+A:1.01*2*(2)
+B:2^(n+1)-1,fraction filed全是1，然后exponent field的值为n就是奇数
+C:前面有说到最小的normalized value是2^(-2^(k-1)+2),所以倒数为2^(2^(k-1)-2),相乘为1
