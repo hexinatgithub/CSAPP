@@ -1,0 +1,20 @@
+//这道题难点在最后几句的编译器优化上面
+
+5:		i				%eax
+6:		bp				%ecx
+7:		28i				%ebx
+8:		8i				%edx
+9:		7i				%edx
+10:		M(bp+4+28i)+7i	%edx			//因为bp+4是a的起始地址，所以很明显的是28*i等同于c语言语句bp->a[i]，所以a_struct的大小为28
+11:		M(bp+200)		%eax
+12:		M(bp)+M(bp+200)	%eax			//这里可以看出right的offset在200,left的offset在0，则200-4=196,所以CNT为196/28=7
+13:		M(bp+8+(M(bp+4+28i)+7i)*4)=n
+//第13条语句看起来很奇怪，要分解一下
+M(bp+4+28i+4+M(bp+4+28i)*4)转换为c语言语句
+M(bp+4+28i+4+(ap->idx)*4)
+很明显的bp+4+28的地址为ap的地址，再加上4则第一个元素为idx，类型为int，x的类型是数组，元素类型是int，(28-4)/4=6
+所以a_struct的声明语句为
+typedef struct a_struct{
+	int idx;
+	int x[6];
+};
