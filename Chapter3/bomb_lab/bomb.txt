@@ -1,0 +1,124 @@
+//CSAPP bomb_lab
+
+phase_1:
+在这一阶段调用了一个函数名字叫String_length,这个函数有两个参数，第一个就是我们的输入input,第二个参数是程序要对比的参数，这个函数对比是否两个字符串相等。
+使用gdb:x /s $rsi可以看到这个字符串
+
+========================================
+
+phase_2:
+这一阶段呢，我在read_six_number这个函数里面待了太久，这个函数使我比较困惑的是在phase_2的函数里面使用%rsp+40-----%rsp+12段的内存保持了一些信息，而在
+read_six_number的函数里面使用了%rsp+20-----%rsp这段内存，这样的话就重写了phase_2保持的内存啊亲，为什么？看到只要输入6个数字就不会引爆，果断返回phase_2不浪费时间。
+在phase_2中，我们可以看到后面是一个循环,c语言语句如下，意思就是说a[0]=a[3],a[1]=a[4],a[2]=a[5],而且a[3]不能为0。
+
+int* p1 = &a[0];
+int* p2 = &a[3];
+while(p1 != p2){
+	if(*p1 == *(p1+12))
+		p1+=1;;
+	else
+		explode_bomb();
+}
+if(*p2 == 0)
+	explode_bomb();
+
+===============================================
+
+phase_3:
+使用sscanf语句把input输入到数组中保存
+sscanf(input,"%d %d",a[1],a[0])
+这里要注意的是a[1]和a[0]的顺序，要小心
+后面是一个典型的switch语句
+
+int temp = 0;
+switch(a[0]){
+	case 0:
+		temp = 535;
+		break;
+	case 1:
+		temp = 926;
+		break;
+	case 2:
+		temp = 214;
+		break;
+	case 3:
+		temp = 339
+		break;
+	case 4:
+		temp = 119;
+		break;
+	case 5:
+		temp = 352;
+		break;
+	case 6:
+		temp =919;
+		break;
+	case 7:
+		temp = 412;
+		break;
+}
+if(temp == a[1])
+	return;
+else
+	explode_bomb();
+
+//half_way,恭喜，到一半啦哈哈
+
+===========================================
+
+phase_4:
+前面几句的意思
+
+int number = sscanf(input,"%d",a[0]);
+if(number != 1)
+	explode_bomb();
+if(a[0] > 0)
+	int val = fun_4(a[0]);
+	if(val == 55)
+		return;
+	else
+		explode_bomb();
+
+fun_4函数则是一个递归函数
+fun_4(int x){
+	if(x <= 1) return 1;
+	return fun_4(x-1)+fun(x-2); 
+}
+
+=================================================
+
+phase_5:
+这阶段太有意思了，是破解一段数组的访问顺序，要找到路口，遍历一定的元素后到达目标元素，符合一切程序的要求，66666，给力这题
+continue表示不会引爆，即跳过引爆程序
+
+sscanf(input,"%d %d",a[1],a[0]);
+if(v > 1) continue
+int t_a = a[1] & oxf;
+if(t_a != 0xf) continue;
+int temp = 0,i = 0;
+for(i;t_a != oxf;i++){
+	t_a=array[t_a];		//这个array是程序提供的一组数组，可以使用x /16wd address来看数组里面的东西
+	temp += t_a;
+}
+if(i == 12 && temp == a[0])
+	cotinue;			//成功了，呵呵哒
+
+数组如下，数组的访问顺序要反过来看，要访问12次才能到最后一个元素，即先看最后一个元素去推倒数第二个元素，倒数第二个元素去推倒数第三个元素，依次类推
+array		0	1	2	3	4	5	6	7	8	9	10	11	12	13	14	15
+element		10	2	14	7	8	12	15	11	0	4	1	13	3	9	6	5
+
+================================================
+
+phase_6
+这道题就是一个坑哈哈，一开始的思路是看到fun6并没有引爆bomb,所以看是否能跳过fun6来进行下面的判断，然后跳过引爆函数。
+但是看到了fun返回了一个值，所以就进去fun6函数里面进行反编译，发现fun6函数跳来跳去啊，有木有，跳晕我了简直。所以返回到phase_6函数里面观察了下
+发现了一个好的消息，就是我们的input只在sscanf里面使用啊，后面的fun6没有使用input，这样代表什么，就是说fun6总是返回相同的值，和我们的输入是没有关系的
+好的，直接跳到cmp的指令看%ebx里面的值看下是什么，发现是我们的input啊，有没有，然后我们看一下要比较的值是什么，是600,ok只要我们输入是600那么我们就可以跳过引爆程序，过关
+
+答案600
+
+
+
+
+
+
