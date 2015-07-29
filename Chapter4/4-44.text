@@ -1,0 +1,8 @@
+//CSAPP 4.44
+A:
+和上题有点类似，是错的
+
+B:
+movl	(%esp),%ecx
+addl	$4,	%esp
+rrmovl	%ecx,REG

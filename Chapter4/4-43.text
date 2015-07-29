@@ -1,0 +1,8 @@
+//CSAPP 4.43
+A:
+这段代码不能表示REG为%esp的情况，因为这个是返回更新后的代码
+
+B:
+rrmovl	REG, %ecx
+subl	$4,	%esp
+movl	%ecx,(%esp)
