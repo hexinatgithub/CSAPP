@@ -1,0 +1,14 @@
+//CSAPP 4.47
+
+Fetch		icode:ifun<--M[PC]
+			valP<--PC+1
+
+Decode		valA<--R[%esp]
+
+Excute	
+
+Memory		valM<--M[valA]
+
+Write_back	R[%ebp]<--valM
+
+PC update	R[%esp]<--valA
