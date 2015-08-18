@@ -1,0 +1,14 @@
+//CSAPP 6.35
+
+A:
+dest:
+m h m h
+m m h m
+m h m h
+m m h m
+
+src:
+m m m m
+m m m m
+m m m m
+m m m m
