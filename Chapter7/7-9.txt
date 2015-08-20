@@ -1,0 +1,14 @@
+CSAPP 7.9
+
+这道题思路是main在foo6.c里面是strong symbol
+而在bar6.c里面是weak symbol
+所以在进行选择的时候会选择main函数的地址。
+这样在bar6.c进行打印的时候会打印main函数的首地址的内容。
+
+fun = main;
+printf("%x\n", *(char*)fun);
+
+使用这条打印语句发现main函数的首地址的内容为0x55,想了想应该是汇编语言。
+可以进行反汇编,使用objdump发现main函数的首指令为
+push
+push的编码为0x55所以打印总是为0x55

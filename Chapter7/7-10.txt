@@ -1,0 +1,9 @@
+CSAPP 7.10
+
+A:
+gcc p.o libx.a
+
+B:
+gcc p.o libx.a liby.a libx.a
+
+C:gcc libx.a liby.a libz.a libx.a

@@ -1,0 +1,9 @@
+CSAPP 7.6
+
+buf		Yes		extern		main.o		.data
+bufp0	Yes		global		swap.o		.data
+bufp1	Yes		local		swap.o		.bss
+swap	Yes		global		swap.o		.text
+temp	No		
+incr	Yes		local		swap.o		.text
+count	Yes		local		swap.o		.data
