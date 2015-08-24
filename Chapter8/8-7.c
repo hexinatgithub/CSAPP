@@ -7,15 +7,16 @@ unsigned int snooze(unsigned int secs){
 }
 
 void handler(int sig){
-	exit(0);
+	return;
 }
 
 int main(int argc, char const *argv[])
 {
-	if(signal(SIGINT, handler) == SIG_ERR)
+	if(signal(SIGINT, handler) == SIG_ERR){
 		unix_error("signal error");
 		printf("signal error\n");
 		exit(0);
+	}
 
 	if(argc != 2)
 		printf("wrong argument\n");
