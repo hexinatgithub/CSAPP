@@ -12,7 +12,7 @@
  * This is the default path where the driver will look for the
  * default tracefiles. You can override it at runtime with the -t flag.
  */
-#define TRACEDIR "/afs/cs/project/ics2/im/labs/malloclab/traces/"
+#define TRACEDIR "traces/"
 
 /*
  * This is the list of default tracefiles in TRACEDIR that the driver
@@ -30,9 +30,7 @@
   "random-bal.rep",\
   "random2-bal.rep",\
   "binary-bal.rep",\
-  "binary2-bal.rep",\
-  "realloc-bal.rep",\
-  "realloc2-bal.rep"
+  "binary2-bal.rep"
 
 /*
  * This constant gives the estimated performance of the libc malloc
@@ -43,7 +41,7 @@
  * to their score.  This deters students from building extremely fast,
  * but extremely stupid malloc packages.
  */
-#define AVG_LIBC_THRUPUT      600E3  /* 600 Kops/sec */
+#define AVG_LIBC_THRUPUT      1800E3 
 
  /* 
   * This constant determines the contributions of space utilization
@@ -66,7 +64,7 @@
  * Set exactly one of these USE_xxx constants to "1" to select a timing method
  *****************************************************************************/
 #define USE_FCYC   0   /* cycle counter w/K-best scheme (x86 & Alpha only) */
-#define USE_ITIMER 0   /* interval timer (any Unix box) */
-#define USE_GETTOD 1   /* gettimeofday (any Unix box) */
+#define USE_ITIMER 1   /* interval timer (any Unix box) */
+#define USE_GETTOD 0   /* gettimeofday (any Unix box) */
 
 #endif /* __CONFIG_H */
