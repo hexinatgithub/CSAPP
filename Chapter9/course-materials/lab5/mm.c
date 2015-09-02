@@ -120,6 +120,35 @@ typedef struct BlockInfo BlockInfo;
 #define TAG_PRECEDING_USED 2
 
 
+//My define helper marco
+
+/* Pack a size and allocated bit into a word */
+#define PACK(size, alloc)  ((size) | (alloc)) //line:vm:mm:pack
+
+/* Given block ptr bp, compute address of its footer */
+#define FTRP(bp) POINTER_ADD(bp, SIZE(bp->sizeAndTags) - ALIGNMENT)
+
+#define CHUNKSIZE  (1<<12)  /* Extend heap by this amount (bytes) */  //line:vm:mm:endconst 
+
+#define MAX(x, y) ((x) > (y)? (x) : (y))
+
+#define PRE_BLKP(bp) POINTER_SUB(bp, SIZE(*(size_t*)POINTER_SUB(bp, ALIGNMENT)))
+#define NEXT_BLKP(bp) POINTER_ADD(bp, SIZE(bp->sizeAndTags))
+
+#define FALSE 0
+
+#define TRUE 1
+
+/* End my helper marco */
+
+/* My helper function */
+  
+void *reallocNearby(void *p, size_t asize);
+void *reallocSetNextBlockPreUsedBit(void *p, int tag);
+
+/* End my helper function */
+
+
 /* Find a free block of the requested size in the free list.  Returns
    NULL if no free block is large enough. */
 static void * searchFreeList(size_t reqSize) {
@@ -143,7 +172,7 @@ static void insertFreeBlock(BlockInfo* freeBlock) {
   if (oldHead != NULL) {
     oldHead->prev = freeBlock;
   }
-  //  freeBlock->prev = NULL;
+  // freeBlock->prev = NULL;
   FREE_LIST_HEAD = freeBlock;
 }
 
@@ -321,8 +350,7 @@ int mm_init () {
 void* mm_malloc (size_t size) {
   size_t reqSize;
   BlockInfo * ptrFreeBlock = NULL;
-  size_t blockSize;
-  size_t precedingBlockUseTag;
+  size_t extendSize;
 
   // Zero-size requests get NULL.
   if (size == 0) {
@@ -345,7 +373,24 @@ void* mm_malloc (size_t size) {
   // Implement mm_malloc.  You can change or remove any of the above
   // code.  It is included as a suggestion of where to start.
   // You will want to replace this return statement...
-  return NULL; }
+  // printf("mm_malloc: request size %d", reqSize);
+
+  // Search free list for a fit
+  if ((ptrFreeBlock = searchFreeList(reqSize)) != NULL) {
+    // printf(", %p\n", ptrFreeBlock);
+    return place(ptrFreeBlock, reqSize);
+  }
+
+  /* No fit found. Get more memory and place the block */
+  extendSize = MAX(reqSize, CHUNKSIZE);
+  requestMoreSpace(extendSize);
+  if ((ptrFreeBlock = searchFreeList(reqSize)) != NULL) {
+    // printf(", %p\n", ptrFreeBlock);
+    return place(ptrFreeBlock, reqSize);
+  }
+  // printf("mm_malloc: end--shound not run here\n");
+  return NULL;
+}
 
 /* Free the block referenced by ptr. */
 void mm_free (void *ptr) {
@@ -355,7 +400,107 @@ void mm_free (void *ptr) {
 
   // Implement mm_free.  You can change or remove the declaraions
   // above.  They are included as minor hints.
+  blockInfo = (BlockInfo*)POINTER_SUB(ptr, ALIGNMENT);
+  followingBlock = NEXT_BLKP(blockInfo);
+  // printf("mm_free: blockInfo--%p, followingBlock--%p, size--%d\n", blockInfo, followingBlock, SIZE(blockInfo->sizeAndTags));
 
+  //set the next block header and footer preceding bit
+  if (followingBlock->sizeAndTags != TAG_USED) {
+    followingBlock->sizeAndTags = followingBlock->sizeAndTags ^ TAG_PRECEDING_USED;
+    *(size_t*)FTRP(followingBlock) = followingBlock->sizeAndTags;
+  }
+
+  //free the block referenced by ptr and set the freed block's header and footer
+  payloadSize = SIZE(blockInfo->sizeAndTags);
+  int preceding_used_bit = blockInfo->sizeAndTags & TAG_PRECEDING_USED;  //extract the preceding used bit
+  blockInfo->sizeAndTags = PACK(payloadSize, FALSE | preceding_used_bit);
+  *(size_t*)FTRP(blockInfo) = blockInfo->sizeAndTags;
+  // printf("mm_free: free size--%d\n", payloadSize);
+  insertFreeBlock(blockInfo);
+  coalesceFreeBlock(blockInfo);
+}
+
+/* The mm_realloc() function changes the size of the memory block pointed to by ptr to size bytes. */
+void *mm_realloc(void *ptr, size_t size) {
+  // ptr equal NULL.
+  if (ptr == NULL) {
+    return mm_malloc(size);
+  }
+
+  // size equal zero and ptr is not NULL
+  if(ptr != NULL & size == 0) {
+    mm_free(ptr);
+    return NULL;
+  }
+
+  BlockInfo* blockInfo;
+  size_t reqSize;
+  size_t blockSize;
+
+  // Add one word for the initial size header.
+  // Note that we don't need to boundary tag when the block is used!
+  size += WORD_SIZE;
+  if (size <= MIN_BLOCK_SIZE) {
+    // Make sure we allocate enough space for a blockInfo in case we
+    // free this block (when we free this block, we'll need to use the
+    // next pointer, the prev pointer, and the boundary tag).
+    reqSize = MIN_BLOCK_SIZE;
+  } else {
+    // Round up for correct alignment
+    reqSize = ALIGNMENT * ((size + ALIGNMENT - 1) / ALIGNMENT);
+  }
+  blockInfo = (BlockInfo*)POINTER_SUB(ptr, ALIGNMENT);
+  blockSize = SIZE(blockInfo->sizeAndTags);
+
+  // change nothing if origin size is equal to request size
+  if (reqSize == blockSize) {
+    return ptr;
+  }
+
+  /* if request size less than the origin size, then split the origin block if the difference is greater than MIN_BLOCK_SIZE
+   * otherwise change nothing.
+  */
+  else if (reqSize < blockSize) {
+    size_t remainder_size = blockSize - reqSize;
+    if (remainder_size >= MIN_BLOCK_SIZE) {
+      // set the rallocted block
+      int preceding_used_bit = blockInfo->sizeAndTags & TAG_PRECEDING_USED;
+      blockInfo->sizeAndTags = PACK(reqSize, TRUE | preceding_used_bit); //set realloced block header
+
+      // set the remainder block
+      BlockInfo* remainder_blockInfo = NEXT_BLKP(blockInfo);
+      remainder_blockInfo->sizeAndTags = PACK(remainder_size, FALSE | TAG_PRECEDING_USED);  //set remainder block header
+      *(size_t*)FTRP(remainder_blockInfo) = remainder_blockInfo->sizeAndTags; //set remainder block footer
+      insertFreeBlock(remainder_blockInfo);
+
+    } else {
+      // set the rallocted block
+      int preceding_used_bit = blockInfo->sizeAndTags & TAG_PRECEDING_USED;
+      blockInfo->sizeAndTags = PACK(reqSize, TRUE | preceding_used_bit); //set realloced block header
+    }
+    return ptr;
+  }
+
+  /*  if request size greater than origin block size, then if the pre or next block is free
+   *  and sum of the adjacent blocks(pre or next) with origin block space is greater than request space, 
+   *  then coalesce the blocks to place the realloced block.
+   *  otherwise find the new block to place the realoced block and free the origin block
+  */
+  else {
+    if((blockInfo = reallocNearby(blockInfo, reqSize)) != NULL) {  // adjacent space is enough
+      return POINTER_ADD(blockInfo, ALIGNMENT);
+    }
+
+    // search for new space to realloc
+    BlockInfo *newBlockInfo;
+    if ((newBlockInfo = searchFreeList(reqSize)) != NULL) {
+      memcpy(&newBlockInfo->next, &blockInfo->next, size);
+      mm_free(blockInfo);
+      return place(newBlockInfo, reqSize);
+    }
+  }
+
+  return NULL;
 }
 
 /* Print the heap by iterating through it as an implicit free list. */
@@ -389,5 +534,166 @@ static void examine_heap() {
 
 // Implement a heap consistency checker as needed.
 int mm_check() {
+  void *p = mm_malloc(100);
+  *(int*)p = 10000;
+  printf("%d\n", *(int*)p);
+  p = mm_realloc(p, 500);
+  printf("%d\n", *(int*)p);
+  mm_free(p);
+
+  p = mm_realloc(NULL, 1000);
+  *(int*)p = 900;
+  printf("%p--%d\n", p, *(int*)p);
+  p = mm_realloc(p, 100);
+  printf("%p--%d\n", p, *(int*)p);
+  mm_free(p);
+
+  p = mm_malloc(1000);
+  mm_realloc(p, 0);
   return 0;
 }
+
+//My helper function
+
+/* place the request block and reutrn a pointer to payload region of the allocted block */
+void *place(void *p, size_t asize) {
+  BlockInfo *bp = (BlockInfo*)p;
+  int size = SIZE(bp->sizeAndTags);
+  removeFreeBlock(bp);
+  if(size - asize >= MIN_BLOCK_SIZE + ALIGNMENT) {
+    //split the free block, and insert the remaind free block into free block list
+    int remaind_size = size - asize;
+    BlockInfo *remainder_blockInfo = (BlockInfo*)POINTER_ADD(bp, asize);
+    remainder_blockInfo->sizeAndTags = PACK(remaind_size, FALSE | TAG_PRECEDING_USED);
+    *(size_t*)FTRP(remainder_blockInfo) = remainder_blockInfo->sizeAndTags;
+    insertFreeBlock(remainder_blockInfo);
+  }else {
+    BlockInfo *next_bp = NEXT_BLKP(bp);
+    next_bp->sizeAndTags = next_bp->sizeAndTags | TAG_PRECEDING_USED;
+    asize = size;
+  }
+
+  //set the return allocted block's header
+  int preceding_used_bit = bp->sizeAndTags & TAG_PRECEDING_USED;
+  bp->sizeAndTags = PACK(asize, TRUE | preceding_used_bit);
+  return &bp->next;
+}
+
+/*  if the realloc block has some adjacent block is free and
+ *  that the sum with the realloc block and the freed some adjacent block greater than the request size, then coalesce them and place the realloc block
+ *  to this new free block.
+ *  otherwise return NULL
+*/
+
+void *reallocNearby(void *p, size_t asize) {
+  BlockInfo *blockInfo = (BlockInfo*)p;
+  BlockInfo *next_blockInfo = NEXT_BLKP(blockInfo);
+  BlockInfo *pre_blockInfo = NULL;
+
+  size_t sum_size = SIZE(blockInfo->sizeAndTags);
+  int preceding_used_bit = blockInfo->sizeAndTags & TAG_PRECEDING_USED;
+
+  if (next_blockInfo->sizeAndTags == TAG_USED) {
+    next_blockInfo = NULL;
+  }
+
+  if (next_blockInfo && !(next_blockInfo->sizeAndTags & TAG_USED)) {   // if next block is free, then sum the size
+    sum_size += SIZE(next_blockInfo->sizeAndTags);
+
+    if (sum_size >= asize) {  // if the sum of current and next block size is greater than request size,then realloc here.
+      removeFreeBlock(next_blockInfo);
+      //split the block if necessary
+      if (sum_size - asize >= MIN_BLOCK_SIZE) {
+        //set origin's header and footer
+        blockInfo->sizeAndTags = PACK(asize, TRUE | preceding_used_bit);
+
+        BlockInfo *remainder_blockInfo = NEXT_BLKP(blockInfo);
+        remainder_blockInfo->sizeAndTags = PACK(sum_size-asize, FALSE | TAG_PRECEDING_USED);
+        *(size_t*)FTRP(remainder_blockInfo) = remainder_blockInfo->sizeAndTags;
+        insertFreeBlock(remainder_blockInfo);
+      } else {
+        //set origin's header and footer
+        blockInfo->sizeAndTags = PACK(sum_size, TRUE | preceding_used_bit);
+
+        //set the next block's next block header(necessary set the footer)
+        reallocSetNextBlockPreUsedBit(next_blockInfo, TAG_PRECEDING_USED);
+      }
+
+      return blockInfo;
+    }
+  }
+  // the next block's space is not enough for the request space, then looking for the pre block
+  else if (!preceding_used_bit) {
+    pre_blockInfo = PRE_BLKP(blockInfo);
+    sum_size += SIZE(pre_blockInfo->sizeAndTags);
+    int pre_plus_current_size = SIZE(blockInfo->sizeAndTags)+SIZE(pre_blockInfo->sizeAndTags);
+
+    if (pre_plus_current_size >= asize) { // if sum of the pre and current block size is greater than request size,then realloc here.
+      removeFreeBlock(pre_blockInfo);
+
+      if (pre_plus_current_size - asize >= MIN_BLOCK_SIZE){
+        // set realloc block header
+        pre_blockInfo->sizeAndTags = PACK(asize, TRUE | TAG_PRECEDING_USED);
+        // copy the origin block's data to new block
+        memcpy(&pre_blockInfo->next, &blockInfo->next, SIZE(blockInfo->sizeAndTags)-ALIGNMENT);
+
+        //split the block
+        BlockInfo *remainder_blockInfo = NEXT_BLKP(pre_blockInfo);
+        remainder_blockInfo->sizeAndTags = PACK(pre_plus_current_size-asize, FALSE | TAG_PRECEDING_USED);
+        *(size_t*)FTRP(remainder_blockInfo) = remainder_blockInfo->sizeAndTags;
+        insertFreeBlock(remainder_blockInfo);
+
+        //set the origin block's next block's header(if necessary set footer)
+        reallocSetNextBlockPreUsedBit(remainder_blockInfo, ~TAG_PRECEDING_USED);
+      } else {
+        // set realloc block header
+        pre_blockInfo->sizeAndTags = PACK(asize, TRUE | TAG_PRECEDING_USED);
+        // copy the origin block's data to new block
+        memcpy(&pre_blockInfo->next, &blockInfo->next, SIZE(blockInfo->sizeAndTags)-ALIGNMENT);
+      }
+      return pre_blockInfo;
+    } else if (next_blockInfo && sum_size >= asize) { //the sum of pre, current and next block are greater than request size, then realloc here
+      // remove pre and next block from free block list
+      removeFreeBlock(next_blockInfo);
+      removeFreeBlock(pre_blockInfo);
+
+      if (sum_size-asize >= MIN_BLOCK_SIZE) {
+        // set realloc block header
+        pre_blockInfo->sizeAndTags = PACK(asize, TRUE | TAG_PRECEDING_USED);
+        // copy the origin block's data to new block
+        memcpy(&pre_blockInfo->next, &blockInfo->next, SIZE(blockInfo->sizeAndTags)-ALIGNMENT);
+
+        //split the block
+        BlockInfo *remainder_blockInfo = NEXT_BLKP(pre_blockInfo);
+        remainder_blockInfo->sizeAndTags = PACK(sum_size-asize, FALSE | TAG_PRECEDING_USED);
+        *(size_t*)FTRP(remainder_blockInfo) = remainder_blockInfo->sizeAndTags;
+        insertFreeBlock(remainder_blockInfo);
+
+        //set the origin block's next block's header(if necessary set footer)
+        reallocSetNextBlockPreUsedBit(remainder_blockInfo, ~TAG_PRECEDING_USED);
+      } else {
+        // set realloc block header
+        pre_blockInfo->sizeAndTags = PACK(asize, TRUE | TAG_PRECEDING_USED);
+        // copy the origin block's data to new block
+        memcpy(&pre_blockInfo->next, &blockInfo->next, SIZE(blockInfo->sizeAndTags)-ALIGNMENT);
+      }
+      return pre_blockInfo;
+    }
+  }
+
+  return NULL;
+}
+
+void *reallocSetNextBlockPreUsedBit(void *p, int tag) {
+  //set the origin block's next block's header and footer
+  BlockInfo *next_blockInfo = NEXT_BLKP(((BlockInfo*)p));
+  next_blockInfo->sizeAndTags = (next_blockInfo->sizeAndTags-(next_blockInfo->sizeAndTags & TAG_PRECEDING_USED))+tag;
+  if (!(next_blockInfo->sizeAndTags & TAG_USED)) {
+    *(size_t*)FTRP(next_blockInfo) = next_blockInfo->sizeAndTags;
+  }
+}
+
+
+
+
+
