@@ -32,27 +32,27 @@ int div16(int x){
 
 int main(int argc, char const *argv[])
 {
-	// short s = -12345;
-	// unsigned short us = s;	//53191
-	// int i = us;
-	// unsigned ui = s;
-	// // unsigned int i2 = s;
-	// printf("i = %d\n", i);
-	// show_bytes((byte_pointer)&i, sizeof(i));
-	// printf("ui = %u\n", ui);
-	// show_bytes((byte_pointer)&ui, sizeof(ui));
-	// // printf("i2 %d\n", i2);
-	// // show_bytes((byte_pointer)&i2, sizeof(i2));
-	// int a = 0xffffffff;
-	// int b = 0x00000002;
-	// int c = a+b;
-	// printf("%d\n", c);
-	// show_bytes((byte_pointer)&c, sizeof(c));
-	// int a = -0x100;
-	// show_bytes((byte_pointer)&a, sizeof(a));
-	// long long l_a = a;
-	// show_bytes((byte_pointer)&l_a, sizeof(l_a));
-	// int c = pwr2k;
+	short s = -12345;
+	unsigned short us = s;	//53191
+	int i = us;
+	unsigned ui = s;
+	// unsigned int i2 = s;
+	printf("i = %d\n", i);
+	show_bytes((byte_pointer)&i, sizeof(i));
+	printf("ui = %u\n", ui);
+	show_bytes((byte_pointer)&ui, sizeof(ui));
+	// printf("i2 %d\n", i2);
+	// show_bytes((byte_pointer)&i2, sizeof(i2));
+	int a = 0xffffffff;
+	int b = 0x00000002;
+	int c = a+b;
+	printf("%d\n", c);
+	show_bytes((byte_pointer)&c, sizeof(c));
+	int a = -0x100;
+	show_bytes((byte_pointer)&a, sizeof(a));
+	long long l_a = a;
+	show_bytes((byte_pointer)&l_a, sizeof(l_a));
+	int c = pwr2k;
 	printf("%d\n", div16(-32));
 	return 0;
 }
